@@ -1,10 +1,12 @@
 {
   "name": "nest-transact",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "This package give you a simplest possibility to use transactions with Nestjs",
-  "main": "index.ts",
+  "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc --project tsconfig.json"
   },
   "repository": {
     "type": "git",
@@ -20,10 +22,14 @@
   ],
   "author": "alphamikle@gmail.com",
   "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^13.13.4"
+  },
   "peerDependencies": {
     "@nestjs/common": "^7.0.8",
     "typeorm": "^0.2.24",
     "@nestjs/core": "^7.0.9",
-    "reflect-metadata": "^0.1.13"
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^6.5.5"
   }
 }
