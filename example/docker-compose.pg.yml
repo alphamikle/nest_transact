@@ -1,0 +1,22 @@
+version: '3.1'
+
+services:
+  pg:
+    container_name: nest_transact_pg
+    build:
+      context: .
+      dockerfile: ./docker/pg.Dockerfile
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data/pgdata
+    ports:
+      - 9000:5432
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_NAME}
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+volumes:
+  pgdata:
+    driver: local

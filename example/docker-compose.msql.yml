@@ -1,0 +1,22 @@
+version: '3.1'
+
+services:
+  msql:
+    container_name: nest_transact_mysql
+    build:
+      context: .
+      dockerfile: ./docker/msql.Dockerfile
+    restart: always
+    volumes:
+      - mysqldata:/var/lib/mysql
+    ports:
+      - 9001:8080
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+
+volumes:
+  mysqldata:
+    driver: local
