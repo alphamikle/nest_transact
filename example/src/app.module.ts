@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Config } from './config';
 import { User } from './model/user.model';
 import { Purse } from './model/purse.model';
+import { AppServiceV2 } from './app.service-v2';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Purse } from './model/purse.model';
   ],
   providers: [
     AppService,
+    AppServiceV2,
   ],
 })
 export class AppModule {

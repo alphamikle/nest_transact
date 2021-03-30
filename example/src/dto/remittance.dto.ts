@@ -15,4 +15,9 @@ export class RemittanceDto {
     default: 2,
   })
   userIdTo!: number;
+
+  @ApiModelProperty({
+    default: false,
+  })
+  withError!: boolean;
 }

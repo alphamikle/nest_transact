@@ -27,9 +27,16 @@ export class TransactionFor<T = any> {
       return this.cache.get(id);
     }
     if (typeof param === 'string') {
-      const repository: Repository<any> = this.moduleRef.get(param, { strict: false });
-      const entity: any = repository.metadata.target;
-      argument = manager.getRepository(entity);
+      // Fetch the dependency
+      const depedency: Repository<any> = this.moduleRef.get(param, { strict: false });
+      if (depedency instanceof Repository) {
+        // If the dependency is a repository, make a new repository with the desired transaction manager.
+        const entity: any = depedency.metadata.target;
+        argument = manager.getRepository(entity);
+      } else {
+        // The dependency is not a repository, use it directly.
+        argument = depedency;
+      }
     } else {
       argument = this.findArgumentsForProvider(param as ClassType, manager);
     }

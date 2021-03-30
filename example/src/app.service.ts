@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository, Transaction, TransactionManager } from 'typeorm';
 import { TransactionFor } from 'nest-transact';
 import { User } from './model/user.model';
 import { Purse } from './model/purse.model';
@@ -9,6 +9,7 @@ import { PurseDto } from './dto/purse.dto';
 import { classToPlain, plainToClass } from 'class-transformer';
 import { RemittanceResultDto } from './dto/remittance-result.dto';
 import { ModuleRef } from '@nestjs/core';
+import { AppServiceV2 } from './app.service-v2';
 
 export const NOT_FOUND_USER_WITH_ID = (userId: number) => `Not found user with id = ${userId}`;
 export const NOT_FOUND_PURSE_WITH_USER_ID = (userId: number) => `Not found purse with userId = ${userId}`;
@@ -23,6 +24,7 @@ export class AppService extends TransactionFor<AppService> {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Purse)
     private readonly purseRepository: Repository<Purse>,
+    private readonly appServiceV2: AppServiceV2,
     moduleRef: ModuleRef,
   ) {
     super(moduleRef);
@@ -55,9 +57,9 @@ export class AppService extends TransactionFor<AppService> {
     return purse;
   }
 
-  async makeRemittance(fromId: number, toId: number, sum: number, withError = false, transaction = true) {
-    const fromUser = await this.userRepository.findOne(fromId, { transaction });
-    const toUser = await this.userRepository.findOne(toId, { transaction });
+  async makeRemittance(fromId: number, toId: number, sum: number, withError = false): Promise<RemittanceResultDto> {
+    const fromUser = await this.userRepository.findOne(fromId);
+    const toUser = await this.userRepository.findOne(toId);
     if (fromUser === undefined) {
       throw new Error(NOT_FOUND_USER_WITH_ID(fromId));
     }
@@ -70,19 +72,93 @@ export class AppService extends TransactionFor<AppService> {
     if (toUser.defaultPurseId === null) {
       throw new Error(USER_DOES_NOT_HAVE_PURSE(toId));
     }
-    const fromPurse = await this.purseRepository.findOne(fromUser.defaultPurseId, { transaction });
-    const toPurse = await this.purseRepository.findOne(toUser.defaultPurseId, { transaction });
+    const fromPurse = await this.purseRepository.findOne(fromUser.defaultPurseId);
+    const toPurse = await this.purseRepository.findOne(toUser.defaultPurseId);
     const modalSum = Math.abs(sum);
     if (fromPurse.balance < modalSum) {
       throw new Error(NOT_ENOUGH_MONEY(fromId));
     }
     fromPurse.balance -= sum;
     toPurse.balance += sum;
-    await this.purseRepository.save(fromPurse, { transaction });
+    await this.appServiceV2.savePurse(fromPurse);
     if (withError) {
       throw new Error('Unexpectable error was thrown while remittance');
     }
-    await this.purseRepository.save(toPurse, { transaction });
+    await this.purseRepository.save(toPurse);
+    const remittance = new RemittanceResultDto();
+    remittance.fromId = fromId;
+    remittance.toId = toId;
+    remittance.fromBalance = fromPurse.balance;
+    remittance.sum = sum;
+    return remittance;
+  }
+
+  async makeRemittanceWithTypeOrmV1(transactionEntityManager: EntityManager, fromId: number, toId: number, sum: number, withError = false) {
+    const fromUser = await transactionEntityManager.findOne(User, fromId);
+    const toUser = await transactionEntityManager.findOne(User, toId);
+    if (fromUser === undefined) {
+      throw new Error(NOT_FOUND_USER_WITH_ID(fromId));
+    }
+    if (toUser === undefined) {
+      throw new Error(NOT_FOUND_USER_WITH_ID(toId));
+    }
+    if (fromUser.defaultPurseId === null) {
+      throw new Error(USER_DOES_NOT_HAVE_PURSE(fromId));
+    }
+    if (toUser.defaultPurseId === null) {
+      throw new Error(USER_DOES_NOT_HAVE_PURSE(toId));
+    }
+    const fromPurse = await transactionEntityManager.findOne(Purse, fromUser.defaultPurseId);
+    const toPurse = await transactionEntityManager.findOne(Purse, toUser.defaultPurseId);
+    const modalSum = Math.abs(sum);
+    if (fromPurse.balance < modalSum) {
+      throw new Error(NOT_ENOUGH_MONEY(fromId));
+    }
+    fromPurse.balance -= sum;
+    toPurse.balance += sum;
+    await this.appServiceV2.savePurse(fromPurse);
+    if (withError) {
+      throw new Error('Unexpectable error was thrown while remittance');
+    }
+    await transactionEntityManager.save(toPurse);
+    const remittance = new RemittanceResultDto();
+    remittance.fromId = fromId;
+    remittance.toId = toId;
+    remittance.fromBalance = fromPurse.balance;
+    remittance.sum = sum;
+    return remittance;
+  }
+
+  @Transaction()
+  async makeRemittanceWithTypeOrmV2(fromId: number, toId: number, sum: number, withError: boolean, @TransactionManager() transactionEntityManager: EntityManager = null) {
+    const fromUser = await transactionEntityManager.findOne(User, fromId);
+    const toUser = await transactionEntityManager.findOne(User, toId);
+    if (fromUser === undefined) {
+      throw new Error(NOT_FOUND_USER_WITH_ID(fromId));
+    }
+    if (toUser === undefined) {
+      throw new Error(NOT_FOUND_USER_WITH_ID(toId));
+    }
+    if (fromUser.defaultPurseId === null) {
+      throw new Error(USER_DOES_NOT_HAVE_PURSE(fromId));
+    }
+    if (toUser.defaultPurseId === null) {
+      throw new Error(USER_DOES_NOT_HAVE_PURSE(toId));
+    }
+    const fromPurse = await transactionEntityManager.findOne(Purse, fromUser.defaultPurseId);
+    const toPurse = await transactionEntityManager.findOne(Purse, toUser.defaultPurseId);
+    const modalSum = Math.abs(sum);
+    if (fromPurse.balance < modalSum) {
+      throw new Error(NOT_ENOUGH_MONEY(fromId));
+    }
+    fromPurse.balance -= sum;
+    toPurse.balance += sum;
+    // Change savePurseInTransactionV2 to savePurseInTransaction for use method with decorators, and make sure, what it is broken
+    await this.appServiceV2.savePurseInTransactionV2(fromPurse, transactionEntityManager);
+    if (withError) {
+      throw new Error('Unexpectable error was thrown while remittance');
+    }
+    await transactionEntityManager.save(toPurse);
     const remittance = new RemittanceResultDto();
     remittance.fromId = fromId;
     remittance.toId = toId;
