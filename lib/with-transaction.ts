@@ -33,6 +33,9 @@ export class TransactionFor<T = any> {
   private getArgument(param: string | ClassType, manager: EntityManager, excluded: ClassType[]): any {
     const id = typeof param === 'string' ? param : param.name;
     const isExcluded = excluded.length > 0 && excluded.some(ex => ex.name === id);
+    if (id === `${ModuleRef.name}`) {
+      return this.moduleRef;
+    }
     if (isExcluded) {
       /// Returns current instance of service, if it is excluded
       return this.moduleRef.get(id, { strict: false });
