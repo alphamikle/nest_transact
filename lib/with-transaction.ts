@@ -45,7 +45,6 @@ export class TransactionFor<T = any> {
       return this.cache.get(id);
     }
     const canBeRepository = id.includes('Repository');
-    // console.log('ID:', id, 'PARAM:', param);
     if (typeof param === 'string' || canBeRepository) {
       // Fetch the dependency
       let dependency: Repository<any>;
@@ -58,7 +57,7 @@ export class TransactionFor<T = any> {
       } catch (error) {
         dependency = this.moduleRef.get(param, { strict: false });
       }
-      const isRepository = dependency! instanceof Repository || isCustomRepository;
+      const isRepository = (dependency! instanceof Repository) || isCustomRepository || canBeRepository;
       if (isRepository) {
         // If the dependency is a repository, make a new repository with the desired transaction manager.
         const entity: any = dependency!.metadata.target;
