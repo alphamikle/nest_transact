@@ -5,6 +5,16 @@ import { PARAMTYPES_METADATA } from '@nestjs/common/constants';
 
 type ClassType<T = any> = new (...args: any[]) => T;
 
+export interface WithTransactionOptions {
+  /**
+   * Class types, that will not rebuild in transaction,
+   * for example - it can be a service without any repositories
+   * or some cache service, and that service must not rebuild in
+   * app in any time
+   */
+  excluded?: ClassType[];
+}
+
 @Injectable()
 export class TransactionFor<T = any> {
   private cache: Map<string, any> = new Map();
@@ -14,44 +24,61 @@ export class TransactionFor<T = any> {
   ) {
   }
 
-  public withTransaction(manager: EntityManager): this {
-    const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager);
+  public withTransaction(manager: EntityManager, transactionOptions: WithTransactionOptions = {}): this {
+    const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager, transactionOptions.excluded ?? []);
     this.cache.clear();
     return newInstance;
   }
 
-  private getArgument(param: string | ClassType, manager: EntityManager): any {
-    let argument: Repository<any>;
+  private getArgument(param: string | ClassType, manager: EntityManager, excluded: ClassType[]): any {
     const id = typeof param === 'string' ? param : param.name;
+    const isExcluded = excluded.length > 0 && excluded.some(ex => ex.name === id);
+    if (isExcluded) {
+      /// Returns current instance of service, if it is excluded
+      return this.moduleRef.get(id, { strict: false });
+    }
+    let argument: Repository<any>;
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    if (typeof param === 'string') {
+    const canBeRepository = id.includes('Repository');
+    // console.log('ID:', id, 'PARAM:', param);
+    if (typeof param === 'string' || canBeRepository) {
       // Fetch the dependency
-      const depedency: Repository<any> = this.moduleRef.get(param, { strict: false });
-      if (depedency instanceof Repository) {
+      let dependency: Repository<any>;
+      let isCustomRepository = false;
+      try {
+        if (canBeRepository) {
+          dependency = manager.getCustomRepository(param as any);
+          isCustomRepository = true;
+        }
+      } catch (error) {
+        dependency = this.moduleRef.get(param, { strict: false });
+      }
+      const isRepository = dependency! instanceof Repository || isCustomRepository;
+      if (isRepository) {
         // If the dependency is a repository, make a new repository with the desired transaction manager.
-        const entity: any = depedency.metadata.target;
+        const entity: any = dependency!.metadata.target;
         argument = manager.getRepository(entity);
       } else {
         // The dependency is not a repository, use it directly.
-        argument = depedency;
+        argument = dependency!;
       }
     } else {
-      argument = this.findArgumentsForProvider(param as ClassType, manager);
+      argument = this.findArgumentsForProvider(param as ClassType, manager, excluded);
     }
     this.cache.set(id, argument);
     return argument;
   }
 
-  private findArgumentsForProvider(constructor: ClassType, manager: EntityManager) {
+  private findArgumentsForProvider(constructor: ClassType, manager: EntityManager, excluded: ClassType[]) {
     const args: any[] = [];
     const keys = Reflect.getMetadataKeys(constructor);
     keys.forEach(key => {
       if (key === PARAMTYPES_METADATA) {
         const paramTypes: Array<string | ClassType> = Reflect.getMetadata(key, constructor);
         for (const param of paramTypes) {
-          const argument = this.getArgument(param, manager);
+          const argument = this.getArgument(param, manager, excluded);
           args.push(argument);
         }
       }

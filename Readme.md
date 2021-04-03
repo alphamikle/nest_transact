@@ -16,7 +16,7 @@ export class SomeController {
   
   async makeBuilding(payload: SomePayload): Promise<SomeResponse> {
     return this.connection.transaction(async transactionEntityManager => {
-      const result = await this.someService.withTransaction(transactionEntityManager).someFunctionWhichWillUseTransactions(payload);
+      const result = await this.someService.withTransaction(transactionEntityManager, { excluded: [SomeCacheService] }).someFunctionWhichWillUseTransactions(payload);
       await this.emailService.withTransaction(transactionEntityManager).sendNotificationMessage();
       return result;
     });
@@ -36,6 +36,8 @@ export class SomeService extends TransactionFor<SomeService> {
     private readonly someRepository: Repository<SomeEntity>,
     // This injected service is a transactional too
     private readonly someOtherService: SomeOtherSeervice,
+    // This is a service, which must not rebuild in transactions
+    private readonly someCacheService: SomeCacheService,
     moduleRef: ModuleRef,
   ) {
     super(moduleRef);
