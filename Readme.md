@@ -34,6 +34,8 @@ export class SomeService extends TransactionFor<SomeService> {
     // This repository is a transactional
     @InjectRepository(SomeEntity)
     private readonly someRepository: Repository<SomeEntity>,
+    // Custom repositories can be used too
+    private readonly someCustomRepository: CustomRepository,
     // This injected service is a transactional too
     private readonly someOtherService: SomeOtherSeervice,
     // This is a service, which must not rebuild in transactions
@@ -47,6 +49,7 @@ export class SomeService extends TransactionFor<SomeService> {
     await this.someMethod();
     const someResponse = await this.someOtherMethod(param);
     await this.someOtherService.someMethod(someResponse);
+    await this.someCustomRepository.doFinalLogic();
     return someResponse;
   }
 
