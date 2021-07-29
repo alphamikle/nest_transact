@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { EntityManager, Repository } from 'typeorm';
-import { ModuleRef } from '@nestjs/core';
-import { PARAMTYPES_METADATA } from '@nestjs/common/constants';
+import { Injectable } from "@nestjs/common";
+import { EntityManager, Repository } from "typeorm";
+import { ModuleRef } from "@nestjs/core";
+import { PARAMTYPES_METADATA } from "@nestjs/common/constants";
 
 type ClassType<T = any> = new (...args: any[]) => T;
-
+type ForwardRef = {
+  forwardRef: () => any;
+};
 export interface WithTransactionOptions {
   /**
    * Class types, that will not rebuild in transaction,
@@ -19,20 +21,40 @@ export interface WithTransactionOptions {
 export class TransactionFor<T = any> {
   private cache: Map<string, any> = new Map();
 
-  constructor(
-    private moduleRef: ModuleRef,
-  ) {
-  }
+  constructor(private moduleRef: ModuleRef) {}
 
-  public withTransaction(manager: EntityManager, transactionOptions: WithTransactionOptions = {}): this {
-    const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager, transactionOptions.excluded ?? []);
+  public withTransaction(
+    manager: EntityManager,
+    transactionOptions: WithTransactionOptions = {}
+  ): this {
+    const newInstance = this.findArgumentsForProvider(
+      this.constructor as ClassType<this>,
+      manager,
+      transactionOptions.excluded ?? []
+    );
     this.cache.clear();
     return newInstance;
   }
 
-  private getArgument(param: string | ClassType, manager: EntityManager, excluded: ClassType[]): any {
-    const id = typeof param === 'string' ? param : param.name;
-    const isExcluded = excluded.length > 0 && excluded.some(ex => ex.name === id);
+  private getArgument(
+    param: string | ClassType | ForwardRef,
+    manager: EntityManager,
+    excluded: ClassType[]
+  ): any {
+    if (typeof param === "object" && "forwardRef" in param) {
+      return this.moduleRef.get(param.forwardRef().name, { strict: false });
+    }
+    const id =
+      typeof param === "string"
+        ? param
+        : typeof param === "function"
+        ? param.name
+        : undefined;
+    if (id === undefined) {
+      throw new Error(`Can't get injection token from ${param}`);
+    }
+    const isExcluded =
+      excluded.length > 0 && excluded.some((ex) => ex.name === id);
     if (id === `${ModuleRef.name}`) {
       return this.moduleRef;
     }
@@ -44,8 +66,8 @@ export class TransactionFor<T = any> {
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    const canBeRepository = id.includes('Repository');
-    if (typeof param === 'string' || canBeRepository) {
+    const canBeRepository = id.includes("Repository");
+    if (typeof param === "string" || canBeRepository) {
       // Fetch the dependency
       let dependency: Repository<any>;
       let isCustomRepository = false;
@@ -57,7 +79,10 @@ export class TransactionFor<T = any> {
       } catch (error) {
         dependency = this.moduleRef.get(param, { strict: false });
       }
-      const isRepository = (dependency! instanceof Repository) || isCustomRepository || canBeRepository;
+      const isRepository =
+        dependency! instanceof Repository ||
+        isCustomRepository ||
+        canBeRepository;
       if (isRepository) {
         // If the dependency is a repository, make a new repository with the desired transaction manager.
         const entity: any = dependency!.metadata.target;
@@ -67,18 +92,29 @@ export class TransactionFor<T = any> {
         argument = dependency!;
       }
     } else {
-      argument = this.findArgumentsForProvider(param as ClassType, manager, excluded);
+      argument = this.findArgumentsForProvider(
+        param as ClassType,
+        manager,
+        excluded
+      );
     }
     this.cache.set(id, argument);
     return argument;
   }
 
-  private findArgumentsForProvider(constructor: ClassType, manager: EntityManager, excluded: ClassType[]) {
+  private findArgumentsForProvider(
+    constructor: ClassType,
+    manager: EntityManager,
+    excluded: ClassType[]
+  ) {
     const args: any[] = [];
     const keys = Reflect.getMetadataKeys(constructor);
-    keys.forEach(key => {
+    keys.forEach((key) => {
       if (key === PARAMTYPES_METADATA) {
-        const paramTypes: Array<string | ClassType> = Reflect.getMetadata(key, constructor);
+        const paramTypes: Array<string | ClassType> = Reflect.getMetadata(
+          key,
+          constructor
+        );
         for (const param of paramTypes) {
           const argument = this.getArgument(param, manager, excluded);
           args.push(argument);
