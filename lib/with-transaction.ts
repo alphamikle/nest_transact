@@ -1,12 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { EntityManager, Repository } from "typeorm";
-import { ModuleRef } from "@nestjs/core";
-import { PARAMTYPES_METADATA } from "@nestjs/common/constants";
+import { Injectable } from '@nestjs/common';
+import { EntityManager, Repository } from 'typeorm';
+import { ModuleRef } from '@nestjs/core';
+import { PARAMTYPES_METADATA } from '@nestjs/common/constants';
 
 type ClassType<T = any> = new (...args: any[]) => T;
 type ForwardRef = {
   forwardRef: () => any;
 };
+
 export interface WithTransactionOptions {
   /**
    * Class types, that will not rebuild in transaction,
@@ -21,16 +22,17 @@ export interface WithTransactionOptions {
 export class TransactionFor<T = any> {
   private cache: Map<string, any> = new Map();
 
-  constructor(private moduleRef: ModuleRef) {}
+  constructor(private moduleRef: ModuleRef) {
+  }
 
   public withTransaction(
     manager: EntityManager,
-    transactionOptions: WithTransactionOptions = {}
+    transactionOptions: WithTransactionOptions = {},
   ): this {
     const newInstance = this.findArgumentsForProvider(
       this.constructor as ClassType<this>,
       manager,
-      transactionOptions.excluded ?? []
+      transactionOptions.excluded ?? [],
     );
     this.cache.clear();
     return newInstance;
@@ -39,15 +41,15 @@ export class TransactionFor<T = any> {
   private getArgument(
     param: string | ClassType | ForwardRef,
     manager: EntityManager,
-    excluded: ClassType[]
+    excluded: ClassType[],
   ): any {
-    if (typeof param === "object" && "forwardRef" in param) {
+    if (typeof param === 'object' && 'forwardRef' in param) {
       return this.moduleRef.get(param.forwardRef().name, { strict: false });
     }
     const id =
-      typeof param === "string"
+      typeof param === 'string'
         ? param
-        : typeof param === "function"
+        : typeof param === 'function'
         ? param.name
         : undefined;
     if (id === undefined) {
@@ -66,8 +68,8 @@ export class TransactionFor<T = any> {
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    const canBeRepository = id.includes("Repository");
-    if (typeof param === "string" || canBeRepository) {
+    const canBeRepository = id.includes('Repository');
+    if (typeof param === 'string' || canBeRepository) {
       // Fetch the dependency
       let dependency: Repository<any>;
       let isCustomRepository = false;
@@ -95,7 +97,7 @@ export class TransactionFor<T = any> {
       argument = this.findArgumentsForProvider(
         param as ClassType,
         manager,
-        excluded
+        excluded,
       );
     }
     this.cache.set(id, argument);
@@ -105,7 +107,7 @@ export class TransactionFor<T = any> {
   private findArgumentsForProvider(
     constructor: ClassType,
     manager: EntityManager,
-    excluded: ClassType[]
+    excluded: ClassType[],
   ) {
     const args: any[] = [];
     const keys = Reflect.getMetadataKeys(constructor);
@@ -113,7 +115,7 @@ export class TransactionFor<T = any> {
       if (key === PARAMTYPES_METADATA) {
         const paramTypes: Array<string | ClassType> = Reflect.getMetadata(
           key,
-          constructor
+          constructor,
         );
         for (const param of paramTypes) {
           const argument = this.getArgument(param, manager, excluded);

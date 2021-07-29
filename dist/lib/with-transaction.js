@@ -26,8 +26,18 @@ let TransactionFor = class TransactionFor {
         return newInstance;
     }
     getArgument(param, manager, excluded) {
-        const id = typeof param === 'string' ? param : param.name;
-        const isExcluded = excluded.length > 0 && excluded.some(ex => ex.name === id);
+        if (typeof param === 'object' && 'forwardRef' in param) {
+            return this.moduleRef.get(param.forwardRef().name, { strict: false });
+        }
+        const id = typeof param === 'string'
+            ? param
+            : typeof param === 'function'
+                ? param.name
+                : undefined;
+        if (id === undefined) {
+            throw new Error(`Can't get injection token from ${param}`);
+        }
+        const isExcluded = excluded.length > 0 && excluded.some((ex) => ex.name === id);
         if (id === `${core_1.ModuleRef.name}`) {
             return this.moduleRef;
         }
@@ -51,7 +61,9 @@ let TransactionFor = class TransactionFor {
             catch (error) {
                 dependency = this.moduleRef.get(param, { strict: false });
             }
-            const isRepository = (dependency instanceof typeorm_1.Repository) || isCustomRepository || canBeRepository;
+            const isRepository = dependency instanceof typeorm_1.Repository ||
+                isCustomRepository ||
+                canBeRepository;
             if (isRepository) {
                 const entity = dependency.metadata.target;
                 argument = manager.getRepository(entity);
@@ -69,7 +81,7 @@ let TransactionFor = class TransactionFor {
     findArgumentsForProvider(constructor, manager, excluded) {
         const args = [];
         const keys = Reflect.getMetadataKeys(constructor);
-        keys.forEach(key => {
+        keys.forEach((key) => {
             if (key === constants_1.PARAMTYPES_METADATA) {
                 const paramTypes = Reflect.getMetadata(key, constructor);
                 for (const param of paramTypes) {
