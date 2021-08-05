@@ -29,11 +29,7 @@ let TransactionFor = class TransactionFor {
         if (typeof param === 'object' && 'forwardRef' in param) {
             return this.moduleRef.get(param.forwardRef().name, { strict: false });
         }
-        const id = typeof param === 'string'
-            ? param
-            : typeof param === 'function'
-                ? param.name
-                : undefined;
+        const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
         if (id === undefined) {
             throw new Error(`Can't get injection token from ${param}`);
         }
@@ -51,20 +47,15 @@ let TransactionFor = class TransactionFor {
         const canBeRepository = id.includes('Repository');
         if (typeof param === 'string' || canBeRepository) {
             let dependency;
-            let isCustomRepository = false;
             try {
                 if (canBeRepository) {
-                    dependency = manager.getCustomRepository(param);
-                    isCustomRepository = true;
+                    return manager.getCustomRepository(param);
                 }
             }
             catch (error) {
                 dependency = this.moduleRef.get(param, { strict: false });
             }
-            const isRepository = dependency instanceof typeorm_1.Repository ||
-                isCustomRepository ||
-                canBeRepository;
-            if (isRepository) {
+            if (dependency instanceof typeorm_1.Repository || canBeRepository) {
                 const entity = dependency.metadata.target;
                 argument = manager.getRepository(entity);
             }
