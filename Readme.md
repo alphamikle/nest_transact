@@ -1,7 +1,23 @@
-[NPM](https://www.npmjs.com/package/nest-transact)
+[![npm](https://img.shields.io/npm/v/nest-transact)](https://www.npmjs.com/package/nest-transact)
+![GitHub package.json version](https://img.shields.io/github/package-json/v/alphamikle/nest_transact?label=GitHub%20Version)
+![npm](https://img.shields.io/npm/dw/nest-transact?label=Downloads%20per%20week)
+![npm](https://img.shields.io/npm/dt/nest-transact?label=Total%20downloads)
+
+
+## Current supported versions of Nest.js, Typeorm and other packages
+
+![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/@nestjs/common)
+![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/typeorm)
+![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/@nestjs/core)
+![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/reflect-metadata)
+![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/rxjs)
+
+
+## Description
 
 This package was created for simplest using transactions in Nestjs with TypeORM.
-Example of using:
+
+## Example
 ```typescript
 // some.controller.ts
 
