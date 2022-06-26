@@ -1,6 +1,6 @@
 import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { Purse } from './purse.model';
 import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger/dist/decorators/api-model-property.decorator';
+import { Purse } from '../../transfer/model/purse.model';
 
 @Entity({ name: 'user' })
 export class User {

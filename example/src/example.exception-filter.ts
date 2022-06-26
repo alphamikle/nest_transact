@@ -6,10 +6,10 @@ export class ExampleExceptionFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const isError = exception instanceof Error;
-    const status = isError ? 400 : 500;
+    const status = exception.status ?? 500;
     const message = isError ? exception.message : exception.toString();
     response.status(status).json({
-      statusCode: status,
+      code: status,
       message,
     });
   }

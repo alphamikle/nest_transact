@@ -6,10 +6,10 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "docker": "docker-compose -f docker-compose.pg.yml up",
-    "start": "nest start --watch",
-    "test": "jest",
-    "test:cov": "jest --coverage"
+    "init": "bash ./init.sh",
+    "dispose": "bash ./dispose.sh",
+    "start": "cp .env dist/.env && nest start --watch",
+    "test": "bash ./check.sh"
   },
   "dependencies": {
     "@nestjs/common": "^8.4.4",
@@ -20,14 +20,13 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.13.2",
     "dotenv": "^16.0.0",
-    "mysql": "^2.18.1",
-    "nest-transact": "^1.1.5",
+    "nest-transact": "file:./../",
     "pg": "^8.7.3",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^6.5.4",
+    "rxjs": "^7.5.5",
     "swagger-ui-express": "^4.3.0",
-    "typeorm": "^0.3.6"
+    "typeorm": "^0.2.45"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.2.5",
@@ -43,7 +42,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^8.14.0",
     "eslint-plugin-import": "^2.26.0",
-    "jest": "^28.0.2",
+    "jest": "^27.5.1",
     "supertest": "^6.2.3",
     "ts-jest": "^27.1.4",
     "ts-loader": "^9.2.9",
@@ -63,6 +62,14 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "roots": [
+      "../test"
+    ],
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "../../src/**",
+      "./**"
+    ]
   }
 }

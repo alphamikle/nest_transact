@@ -57,7 +57,7 @@ export class TransactionFor<T = any> {
       let dependency: Repository<any>;
       try {
         if (canBeRepository) {
-          // Return directly if param is custom repository.
+          // Return directly if param is custom repository
           return manager.getCustomRepository(param as any);
         }
       } catch (error) {
@@ -78,7 +78,7 @@ export class TransactionFor<T = any> {
     return argument;
   }
 
-  private findArgumentsForProvider(constructor: ClassType, manager: EntityManager, excluded: ClassType[]) {
+  private findArgumentsForProvider(constructor: ClassType, manager: EntityManager, excluded: ClassType[]): any {
     const args: any[] = [];
     const keys = Reflect.getMetadataKeys(constructor);
     keys.forEach((key) => {

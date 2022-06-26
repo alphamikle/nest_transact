@@ -3,7 +3,6 @@
 ![npm](https://img.shields.io/npm/dw/nest-transact?label=Downloads%20per%20week)
 ![npm](https://img.shields.io/npm/dt/nest-transact?label=Total%20downloads)
 
-
 ## Current supported versions of Nest.js, Typeorm and other packages
 
 ![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/@nestjs/common)
@@ -15,62 +14,53 @@
 
 ## Description
 
-This package was created for simplest using transactions in Nestjs with TypeORM.
+This package takes the use of transactions in Nest.js with TypeORM to the next level. The easiest and fastest way to keep your data intact.
 
 ## Example
-```typescript
-// some.controller.ts
 
+### Controller
+
+```ts
+@Injectable()
 @Controller()
-export class SomeController {
+@ApiTags('example-app')
+export class ExampleAppController {
   constructor(
-    private readonly someService: SomeService,
-    private readonly emailService: EmailService,
-    private connection: Connection,
+    private readonly appService: ExampleAppService,
+    // Connection instance needed to us anyway, to start a transaction
+    private readonly connection: Connection,
   ) {
   }
-  
-  async makeBuilding(payload: SomePayload): Promise<SomeResponse> {
-    return this.connection.transaction(async transactionEntityManager => {
-      const result = await this.someService.withTransaction(transactionEntityManager, { excluded: [SomeCacheService] }).someFunctionWhichWillUseTransactions(payload);
-      await this.emailService.withTransaction(transactionEntityManager).sendNotificationMessage();
-      return result;
+
+  @Post('transfer')
+  @ApiResponse({
+    type: TransferOperationResultDto,
+  })
+  async makeRemittanceWithTransaction(@Body() dto: TransferParamsDTO) {
+    return this.connection.transaction(manager => {
+      return this.appService.withTransaction(manager)/* <-- this is interesting new thing */.makeTransfer(
+        dto.userIdFrom,
+        dto.userIdTo,
+        dto.sum,
+        dto.withError,
+      );
     });
   }
 
-}
-```
-
-```typescript
-// some.service.ts
-
-@Injectable()
-export class SomeService extends TransactionFor<SomeService> {
-  constructor(
-    // This repository is a transactional
-    @InjectRepository(SomeEntity)
-    private readonly someRepository: Repository<SomeEntity>,
-    // Custom repositories can be used too
-    private readonly someCustomRepository: CustomRepository,
-    // This injected service is a transactional too
-    private readonly someOtherService: SomeOtherSeervice,
-    // This is a service, which must not rebuild in transactions
-    private readonly someCacheService: SomeCacheService,
-    moduleRef: ModuleRef,
-  ) {
-    super(moduleRef);
+  @Post('transfer-without-transaction')
+  @ApiResponse({
+    type: TransferOperationResultDto,
+  })
+  async makeRemittanceWithoutTransaction(@Body() dto: TransferParamsDTO) {
+    return this.appService.makeTransfer(
+      dto.userIdFrom,
+      dto.userIdTo,
+      dto.sum,
+      dto.withError,
+    );
   }
-  
-  async someFunctionWhichWillUseTransactions(param: SomeParam): Promise<SomeResponse> {
-    await this.someMethod();
-    const someResponse = await this.someOtherMethod(param);
-    await this.someOtherService.someMethod(someResponse);
-    await this.someCustomRepository.doFinalLogic();
-    return someResponse;
-  }
-
-  // ...some other methods
 }
+
 ```
 
 Well, to use transactions with this package you must inject **ModuleRef** into your

@@ -85,8 +85,7 @@ let TransactionFor = class TransactionFor {
     }
 };
 TransactionFor = __decorate([
-    common_1.Injectable(),
+    (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [core_1.ModuleRef])
 ], TransactionFor);
 exports.TransactionFor = TransactionFor;
-//# sourceMappingURL=with-transaction.js.map

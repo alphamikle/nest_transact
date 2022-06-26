@@ -2,27 +2,24 @@ import { config, parse } from 'dotenv';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { Logger } from '@nestjs/common';
 
 config();
 
-const { NODE_ENV } = process.env;
-
-const envPath = resolve(__dirname, '..', `.env.${NODE_ENV}`);
+const envPath = resolve(__dirname, '..', `.env`);
 const envConfig = parse(readFileSync(envPath));
 for (const k in envConfig) {
   process.env[k] = envConfig[k];
 }
 
-const { DB_TYPE, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME, DB_LOG_LEVEL } = process.env;
+const { DB_TYPE, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME } = process.env;
 
 export class Config {
-  static nodeEnv = NODE_ENV;
   static dbType = DB_TYPE;
   static dbPort = Number(DB_PORT);
   static dbUsername = DB_USERNAME;
   static dbPassword = DB_PASSWORD;
   static dbName = DB_NAME;
-  static dbLogLevel = DB_LOG_LEVEL ?? 'all';
 
   static typeOrmConfig: TypeOrmModuleOptions = {
     type: Config.dbType,
@@ -32,11 +29,14 @@ export class Config {
     password: Config.dbPassword,
     database: Config.dbName,
     entities: [`${__dirname}/**/*.model{.ts,.js}`],
-    logging: Config.dbLogLevel,
+    logging: [
+      'error',
+      'warn',
+    ],
     synchronize: true,
   } as TypeOrmModuleOptions;
 }
 
 export const aShowConfig = () => {
-  console.log(Config);
+  Logger.log('Config initialized', 'Config');
 };
