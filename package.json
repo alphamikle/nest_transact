@@ -1,6 +1,6 @@
 {
   "name": "nest-transact",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "description": "This package give you a simplest possibility to use transactions with Nestjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
