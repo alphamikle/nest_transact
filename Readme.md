@@ -126,33 +126,6 @@ export class TransferController {
 }
 ```
 
-Also, you can pass some class-types into the `withTransaction` method to exclude them (and its dependencies) from the recreation flow. It can be, for example, some cache services, or anything, which you don't want to recreate and which is not a part of transaction logic:
-
-```ts
-// ./example/src/transfer/info.controller.ts
-
-import { Controller, Get } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-import { InfoService } from './info.service';
-import { CacheService } from './cache.service';
-
-@Controller('info')
-export class InfoController {
-  constructor(
-    private readonly infoService: InfoService,
-    private readonly dataSource: DataSource,
-  ) {
-  }
-
-  @Get()
-  async getInfo() {
-    return this.dataSource.transaction(manager => {
-      return this.infoService.withTransaction(manager, { excluded: [CacheService] }).getInfo();
-    });
-  }
-}
-```
-
 ### Services
 
 All the services shown below will make database calls within a single transaction initiated by a controller method launched in a transaction - `transferController.makeRemittanceWithTransaction`.
@@ -256,6 +229,37 @@ export class PurseService {
 }
 ```
 
+---
+
+## Excluding something from the recreation flow
+
+Also, you can pass some class-types into the `.withTransaction(manager, { excluded: [...yourClasses] })` method to exclude them (and its dependencies) from the recreation flow. It can be, for example, some cache services, or anything, which you don't want to recreate and which is not a part of transaction logic:
+
+```ts
+// ./example/src/transfer/info.controller.ts
+
+import { Controller, Get } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { InfoService } from './info.service';
+import { CacheService } from './cache.service';
+
+@Controller('info')
+export class InfoController {
+  constructor(
+    private readonly infoService: InfoService,
+    private readonly dataSource: DataSource,
+  ) {
+  }
+
+  @Get()
+  async getInfo() {
+    return this.dataSource.transaction(manager => {
+      return this.infoService.withTransaction(manager, { excluded: [CacheService] }).getInfo();
+    });
+  }
+}
+```
+
 ```ts
 // ./example/src/transfer/info.service.ts
 
@@ -282,4 +286,4 @@ export class InfoService extends TransactionFor<InfoService> {
 Well, to use transactions with this package you must inject **ModuleRef** into your provider and extends your provider from the **TransactionFor** class.
 
 Then in your controller you must create a transaction entity manager and inject this to your
-providers with .withTransaction(transactionEntityManager) method. This method will recreate you provider and all its dependencies and do what you want.
+providers with `.withTransaction(manager)` method. This method will recreate you provider and all its dependencies and do what you want.

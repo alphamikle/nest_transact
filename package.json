@@ -19,7 +19,8 @@
     "sql",
     "postgresql",
     "mysql",
-    "mariadb"
+    "mariadb",
+    "typeorm"
   ],
   "author": "alphamikle@gmail.com",
   "license": "MIT",
