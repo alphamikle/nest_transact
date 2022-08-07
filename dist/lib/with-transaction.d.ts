@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { EntityManager } from 'typeorm';
 import { ModuleRef } from '@nestjs/core';
 declare type ClassType<T = any> = new (...args: any[]) => T;

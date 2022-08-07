@@ -1,6 +1,6 @@
 {
   "name": "nest-transact",
-  "version": "8.0.0",
+  "version": "9.0.0",
   "description": "This package give you a simplest possibility to use transactions with Nestjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,9 @@
     "transactions",
     "transact",
     "sql",
-    "postgresql"
+    "postgresql",
+    "mysql",
+    "mariadb"
   ],
   "author": "alphamikle@gmail.com",
   "license": "MIT",
@@ -25,19 +27,20 @@
     "@types/node": "^18.0.0",
     "typescript": "^4.7.4",
     "rimraf": "^3.0.2",
-    "@types/validator": "^13.7.2",
-    "@nestjs/common": "^8.4.4",
-    "@nestjs/core": "^8.4.7",
-    "typeorm": "^0.2.45",
+    "@types/validator": "^13.7.5",
+    "npm-install-peers": "^1.2.2",
+    "@nestjs/common": "^9.0.8",
+    "@nestjs/core": "^9.0.8",
+    "typeorm": "^0.3.7",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.5.5"
+    "rxjs": "^7.5.6"
   },
   "peerDependencies": {
-    "@nestjs/common": "^8.4.7",
-    "@nestjs/core": "^8.4.7",
-    "typeorm": "^0.2.45",
+    "@nestjs/common": "^9.0.8",
+    "@nestjs/core": "^9.0.8",
+    "typeorm": "^0.3.7",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.5.5"
+    "rxjs": "^7.5.6"
   },
   "files": [
     "lib",

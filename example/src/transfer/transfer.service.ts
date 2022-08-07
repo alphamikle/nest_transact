@@ -10,9 +10,14 @@ import { PurseService } from './purse.service';
 @Injectable()
 export class TransferService extends TransactionFor<TransferService> {
   constructor(
+    /**
+     * All these services will be recreated and be a participants of the same transaction
+     */
     private readonly purseService: PurseService,
     private readonly userService: UserService,
-    // This is the needed thing for [TransactionFor<T>] logic working
+    /**
+     * This is the needed thing for [TransactionFor<T>] logic working
+     */
     moduleRef: ModuleRef,
   ) {
     super(moduleRef);

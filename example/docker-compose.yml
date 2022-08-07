@@ -6,7 +6,7 @@ services:
     restart: always
     build:
       context: .
-      dockerfile: ./docker/pg.Dockerfile
+      dockerfile: ./pg.Dockerfile
     volumes:
       - pgdata:/var/lib/postgresql/data/pgdata
     ports:

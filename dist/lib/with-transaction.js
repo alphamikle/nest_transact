@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionFor = void 0;
+require("reflect-metadata");
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const core_1 = require("@nestjs/core");
@@ -46,7 +47,7 @@ let TransactionFor = class TransactionFor {
         }
         const canBeRepository = id.includes('Repository');
         if (typeof param === 'string' || canBeRepository) {
-            let dependency;
+            let dependency = null;
             try {
                 if (canBeRepository) {
                     return manager.getCustomRepository(param);
@@ -60,6 +61,9 @@ let TransactionFor = class TransactionFor {
                 argument = manager.getRepository(entity);
             }
             else {
+                if (!dependency) {
+                    dependency = this.moduleRef.get(param, { strict: false });
+                }
                 argument = dependency;
             }
         }

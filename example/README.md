@@ -32,4 +32,11 @@ or
 npm run start:mssql
 ```
 
-OpenAPI Specifications for running requests is available at `localhost:3000/api`
+OpenAPI Specifications for running requests is available at `localhost:3000/api`.
+
+Also, the simplest way to check, that everything is working as expect, just run:
+
+```bash
+npm install
+npm run test
+```

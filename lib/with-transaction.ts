@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
-import { EntityManager, Repository } from "typeorm";
-import { ModuleRef } from "@nestjs/core";
-import { PARAMTYPES_METADATA } from "@nestjs/common/constants";
+import 'reflect-metadata';
+import { Injectable } from '@nestjs/common';
+import { EntityManager, Repository } from 'typeorm';
+import { ModuleRef } from '@nestjs/core';
+import { PARAMTYPES_METADATA } from '@nestjs/common/constants';
 
 type ClassType<T = any> = new (...args: any[]) => T;
 type ForwardRef = {
@@ -22,7 +23,8 @@ export interface WithTransactionOptions {
 export class TransactionFor<T = any> {
   private cache: Map<string, any> = new Map();
 
-  constructor(private moduleRef: ModuleRef) {}
+  constructor(private moduleRef: ModuleRef) {
+  }
 
   public withTransaction(manager: EntityManager, transactionOptions: WithTransactionOptions = {}): this {
     const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager, transactionOptions.excluded ?? []);
@@ -31,10 +33,10 @@ export class TransactionFor<T = any> {
   }
 
   private getArgument(param: string | ClassType | ForwardRef, manager: EntityManager, excluded: ClassType[]): any {
-    if (typeof param === "object" && "forwardRef" in param) {
+    if (typeof param === 'object' && 'forwardRef' in param) {
       return this.moduleRef.get(param.forwardRef().name, { strict: false });
     }
-    const id = typeof param === "string" ? param : typeof param === "function" ? param.name : undefined;
+    const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
     if (id === undefined) {
       throw new Error(`Can't get injection token from ${param}`);
     }
@@ -50,10 +52,10 @@ export class TransactionFor<T = any> {
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    const canBeRepository = id.includes("Repository");
-    if (typeof param === "string" || canBeRepository) {
+    const canBeRepository = id.includes('Repository');
+    if (typeof param === 'string' || canBeRepository) {
       // Fetch the dependency
-      let dependency: Repository<any>;
+      let dependency: Repository<any> | null = null;
       try {
         if (canBeRepository) {
           // Return directly if param is custom repository
@@ -70,7 +72,6 @@ export class TransactionFor<T = any> {
         if (!dependency) {
           dependency = this.moduleRef.get(param, { strict: false });
         }
-
         // The dependency is not a repository, use it directly.
         argument = dependency!;
       }

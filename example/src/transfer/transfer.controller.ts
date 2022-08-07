@@ -3,7 +3,7 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TransferOperationResultDto } from './dto/transfer-operation-result.dto';
 import { TransferParamsDTO } from './dto/transfer-params.dto';
 import { TransferService } from './transfer.service';
-import { Connection } from 'typeorm';
+import { DataSource } from 'typeorm';
 
 @Controller('transfer')
 @ApiTags('transfer')
@@ -11,9 +11,9 @@ export class TransferController {
   constructor(
     private readonly transferService: TransferService,
     /**
-     * Connection instance needed to us anyway, to start a transaction
+     * DataSource instance needed to us to start a transaction
      */
-    private readonly connection: Connection,
+    private readonly dataSource: DataSource,
   ) {
   }
 
@@ -22,8 +22,12 @@ export class TransferController {
     type: TransferOperationResultDto,
   })
   async makeRemittanceWithTransaction(@Body() dto: TransferParamsDTO) {
-    return this.connection.transaction(manager => {
-      return this.transferService.withTransaction(manager)/* <-- this is interesting new thing */.makeTransfer(
+    return this.dataSource.transaction(manager => {
+      /**
+       * [withTransaction] - is the new method, which provided by [TransactionFor<T>] class
+       * and its allow us to start transaction with [transferService] and all its dependencies
+       */
+      return this.transferService.withTransaction(manager).makeTransfer(
         dto.userIdFrom,
         dto.userIdTo,
         dto.sum,
@@ -31,7 +35,7 @@ export class TransferController {
       );
     });
   }
-
+  
   @Post('without-transaction')
   @ApiResponse({
     type: TransferOperationResultDto,
