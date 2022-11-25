@@ -7,6 +7,8 @@ import { PushNotificationModule } from './push-notification/push-notification.mo
 import { InfoController } from './transfer/info.controller';
 import { InfoService } from './transfer/info.service';
 import { CacheService } from './transfer/cache.service';
+import { CircularModule } from './circular/circular.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { CacheService } from './transfer/cache.service';
     UserModule,
     TransferModule,
     PushNotificationModule,
+    CircularModule,
+    CommonModule,
   ],
   controllers: [InfoController],
   providers: [CacheService, InfoService],

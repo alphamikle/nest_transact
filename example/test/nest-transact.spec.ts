@@ -5,6 +5,8 @@ import * as request from 'supertest';
 import { isNotDefined } from '../src/tools';
 import { constants } from 'http2';
 import { TransferParamsDTO } from '../src/transfer/dto/transfer-params.dto';
+import { CircularService } from '../src/circular/circular.service';
+import { DataSource } from 'typeorm';
 
 describe('Nest Transact E2E Testing', () => {
   let app: INestApplication;
@@ -75,6 +77,15 @@ describe('Nest Transact E2E Testing', () => {
     expect(errorResult.statusCode).toBe(constants.HTTP_STATUS_TEAPOT);
     expect(sumOfResponse(okResult.body)).toBe(1900);
   });
+
+  it('Import modules using forwardRef', async () => {
+    const service = app.get(CircularService);
+    const dataSource = app.get(DataSource);
+
+    await dataSource.transaction(async manager => {
+      service.withTransaction(manager);
+    });
+  })
 
   afterAll(async () => {
     await app.close();
