@@ -34,7 +34,7 @@ export class TransactionFor<T = any> {
 
   private getArgument(param: string | ClassType | ForwardRef, manager: EntityManager, excluded: ClassType[]): any {
     if (typeof param === 'object' && 'forwardRef' in param) {
-      return this.moduleRef.get(param.forwardRef().name, { strict: false });
+      return this.moduleRef.get(param.forwardRef(), { strict: false });
     }
     const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
     if (id === undefined) {
