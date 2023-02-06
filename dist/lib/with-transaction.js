@@ -28,7 +28,7 @@ let TransactionFor = class TransactionFor {
     }
     getArgument(param, manager, excluded) {
         if (typeof param === 'object' && 'forwardRef' in param) {
-            return this.moduleRef.get(param.forwardRef().name, { strict: false });
+            return this.moduleRef.get(param.forwardRef(), { strict: false });
         }
         const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
         if (id === undefined) {
