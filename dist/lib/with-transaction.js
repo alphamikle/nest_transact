@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionFor = void 0;
 require("reflect-metadata");
@@ -15,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const core_1 = require("@nestjs/core");
 const constants_1 = require("@nestjs/common/constants");
+const lodash_xor_1 = __importDefault(require("lodash.xor"));
 let TransactionFor = class TransactionFor {
     constructor(moduleRef) {
         this.moduleRef = moduleRef;
@@ -76,14 +80,52 @@ let TransactionFor = class TransactionFor {
     findArgumentsForProvider(constructor, manager, excluded) {
         const args = [];
         const keys = Reflect.getMetadataKeys(constructor);
+        const missingParams = [];
         keys.forEach((key) => {
             if (key === constants_1.PARAMTYPES_METADATA) {
                 const paramTypes = Reflect.getMetadata(key, constructor);
+                const selfParamTypes = Reflect.getMetadata(constants_1.SELF_DECLARED_DEPS_METADATA, constructor);
                 for (const param of paramTypes) {
+                    if (!param) {
+                        const paramTypeNameMap = paramTypes
+                            .filter((item) => !!item)
+                            .reduce((acc, currVal, currIdx) => {
+                            acc.set(currVal.name, currIdx);
+                            return acc;
+                        }, new Map());
+                        const selfParamTypeMap = selfParamTypes
+                            .filter((item) => !!item)
+                            .reduce((acc, currVal, currIdx) => {
+                            if (typeof currVal.param === 'string') {
+                                acc.set(currVal.param, currIdx);
+                            }
+                            else {
+                                acc.set(currVal.param.name, currIdx);
+                            }
+                            return acc;
+                        }, new Map());
+                        const exclusion = (0, lodash_xor_1.default)(Array.from(paramTypeNameMap.keys()), Array.from(selfParamTypeMap.keys()));
+                        exclusion.forEach((item) => {
+                            var _a;
+                            if (paramTypeNameMap.has(item)) {
+                                const val = paramTypes[paramTypeNameMap.get(item)];
+                                missingParams.push(val.name);
+                            }
+                            if (selfParamTypeMap.has(item)) {
+                                const val = selfParamTypes[selfParamTypeMap.get(item)];
+                                missingParams.push(typeof (val === null || val === void 0 ? void 0 : val.param) === 'object' ? (_a = val === null || val === void 0 ? void 0 : val.param) === null || _a === void 0 ? void 0 : _a.name : val.param);
+                            }
+                        });
+                        return;
+                    }
                     const argument = this.getArgument(param, manager, excluded);
                     args.push(argument);
                 }
             }
+        });
+        missingParams.forEach((item) => {
+            const argument = this.getArgument(item, manager, excluded);
+            args.push(argument);
         });
         return new constructor(...args);
     }

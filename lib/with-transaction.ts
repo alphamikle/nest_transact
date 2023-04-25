@@ -1,9 +1,9 @@
-import "reflect-metadata";
-import { Injectable } from "@nestjs/common";
-import { EntityManager, Repository } from "typeorm";
-import { ModuleRef } from "@nestjs/core";
-import { PARAMTYPES_METADATA, SELF_DECLARED_DEPS_METADATA } from "@nestjs/common/constants";
-import _xor from "lodash.xor";
+import 'reflect-metadata';
+import { Injectable } from '@nestjs/common';
+import { EntityManager, Repository } from 'typeorm';
+import { ModuleRef } from '@nestjs/core';
+import { PARAMTYPES_METADATA, SELF_DECLARED_DEPS_METADATA } from '@nestjs/common/constants';
+import _xor from 'lodash.xor';
 
 type ClassType<T = any> = new (...args: any[]) => T;
 type ForwardRef = {
@@ -24,7 +24,8 @@ export interface WithTransactionOptions {
 export class TransactionFor<T = any> {
   private cache: Map<string, any> = new Map();
 
-  constructor(private moduleRef: ModuleRef) {}
+  constructor(private moduleRef: ModuleRef) {
+  }
 
   public withTransaction(manager: EntityManager, transactionOptions: WithTransactionOptions = {}): this {
     const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager, transactionOptions.excluded ?? []);
@@ -33,10 +34,10 @@ export class TransactionFor<T = any> {
   }
 
   private getArgument(param: string | ClassType | ForwardRef, manager: EntityManager, excluded: ClassType[]): any {
-    if (typeof param === "object" && "forwardRef" in param) {
+    if (typeof param === 'object' && 'forwardRef' in param) {
       return this.moduleRef.get(param.forwardRef(), { strict: false });
     }
-    const id = typeof param === "string" ? param : typeof param === "function" ? param.name : undefined;
+    const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
     if (id === undefined) {
       throw new Error(`Can't get injection token from ${param}`);
     }
@@ -52,8 +53,8 @@ export class TransactionFor<T = any> {
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    const canBeRepository = id.includes("Repository");
-    if (typeof param === "string" || canBeRepository) {
+    const canBeRepository = id.includes('Repository');
+    if (typeof param === 'string' || canBeRepository) {
       // Fetch the dependency
       let dependency: Repository<any> | null = null;
       try {
@@ -109,7 +110,7 @@ export class TransactionFor<T = any> {
             const selfParamTypeMap = selfParamTypes
               .filter((item) => !!item)
               .reduce((acc, currVal, currIdx) => {
-                if (typeof currVal.param === "string") {
+                if (typeof currVal.param === 'string') {
                   acc.set(currVal.param, currIdx);
                 } else {
                   acc.set(currVal.param.name, currIdx);
@@ -130,7 +131,7 @@ export class TransactionFor<T = any> {
               if (selfParamTypeMap.has(item)) {
                 const val = selfParamTypes[selfParamTypeMap.get(item)];
 
-                missingParams.push(typeof val?.param === "object" ? val?.param?.name : val.param);
+                missingParams.push(typeof val?.param === 'object' ? val?.param?.name : val.param);
               }
             });
 

@@ -35,7 +35,7 @@ export class TransferController {
       );
     });
   }
-  
+
   @Post('without-transaction')
   @ApiResponse({
     type: TransferOperationResultDto,
