@@ -16,3 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
 __exportStar(require("./lib/with-transaction"), exports);
+__exportStar(require("./lib/types"), exports);
+__exportStar(require("./lib/decorators"), exports);
+__exportStar(require("./lib/transaction-utils"), exports);

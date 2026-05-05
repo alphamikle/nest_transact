@@ -4,7 +4,8 @@
     "node_modules",
     "test", "dist",
     "**/*spec.ts",
-    "example"
+    "example",
+    "examples"
   ],
   "compilerOptions": {
     "sourceMap": false

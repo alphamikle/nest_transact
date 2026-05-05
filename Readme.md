@@ -5,7 +5,7 @@
 
 ## Current supported versions of Nest.js, Typeorm and other packages
 
-The major version of this package will always match the major version of Nest.js, so if you see `nest-transact v9.x.x` it means that this version of the package is compatible with Nest.js `^9.x.x`.
+The major version of this package will always match the major version of Nest.js, so if you see `nest-transact v11.x.x` it means that this version of the package is compatible with Nest.js `^11.x.x`.
 
 ![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/@nestjs/common)
 ![npm peer dependency version](https://img.shields.io/npm/dependency-version/nest-transact/peer/typeorm)

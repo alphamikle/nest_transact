@@ -1,14 +1,37 @@
 import 'reflect-metadata';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
 import { ModuleRef } from '@nestjs/core';
 import { PARAMTYPES_METADATA, SELF_DECLARED_DEPS_METADATA } from '@nestjs/common/constants';
-import _xor from 'lodash.xor';
+const _xor = require('lodash.xor');
 
 type ClassType<T = any> = new (...args: any[]) => T;
 type ForwardRef = {
   forwardRef: () => any;
 };
+
+// Улучшенные типы для безопасности
+type DependencyParam = string | ClassType | ForwardRef;
+type MetadataParam = { name: string } | ClassType | string;
+type SelfDeclaredParam = { param: string } | { param: { name: string } };
+
+// Тип для результата getArgument
+type ResolvedDependency = Repository<any> | any;
+
+// Кастомные ошибки для лучшей диагностики
+export class TransactionDependencyError extends Error {
+  constructor(message: string, public readonly param: unknown) {
+    super(`Transaction dependency resolution failed: ${message}`);
+    this.name = 'TransactionDependencyError';
+  }
+}
+
+export class TransactionRepositoryError extends Error {
+  constructor(message: string, public readonly repositoryName: string) {
+    super(`Transaction repository error: ${message}`);
+    this.name = 'TransactionRepositoryError';
+  }
+}
 
 export interface WithTransactionOptions {
   /**
@@ -22,135 +45,304 @@ export interface WithTransactionOptions {
 
 @Injectable()
 export class TransactionFor<T = any> {
+  private readonly logger = new Logger(TransactionFor.name);
   private cache: Map<string, any> = new Map();
+
+  // Кэш для метаданных конструкторов для улучшения производительности
+  private static readonly metadataCache = new Map<ClassType, {
+    paramTypes: MetadataParam[];
+    selfDeclaredTypes: SelfDeclaredParam[];
+  }>();
 
   constructor(private moduleRef: ModuleRef) {
   }
 
   public withTransaction(manager: EntityManager, transactionOptions: WithTransactionOptions = {}): this {
-    const newInstance = this.findArgumentsForProvider(this.constructor as ClassType<this>, manager, transactionOptions.excluded ?? []);
-    this.cache.clear();
-    return newInstance;
+    if (!manager) {
+      throw new TransactionDependencyError('EntityManager is required', manager);
+    }
+
+    const startTime = Date.now();
+    this.logger.debug(`Creating transactional instance of ${this.constructor.name}`);
+
+    try {
+      const excludedClasses = transactionOptions.excluded ?? [];
+      const newInstance = this.findArgumentsForProvider(
+        this.constructor as ClassType<this>,
+        manager,
+        excludedClasses
+      );
+
+      this.cache.clear();
+
+      const duration = Date.now() - startTime;
+      this.logger.debug(`Transactional instance created in ${duration}ms`);
+
+      return newInstance;
+    } catch (error) {
+      this.logger.error(`Failed to create transactional instance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
   }
 
-  private getArgument(param: string | ClassType | ForwardRef, manager: EntityManager, excluded: ClassType[]): any {
-    if (typeof param === 'object' && 'forwardRef' in param) {
-      return this.moduleRef.get(param.forwardRef(), { strict: false });
+  private getArgument(param: DependencyParam, manager: EntityManager, excluded: ClassType[]): ResolvedDependency {
+    // Обработка forwardRef
+    if (this.isForwardRef(param)) {
+      return this.resolveForwardRef(param);
     }
-    const id = typeof param === 'string' ? param : typeof param === 'function' ? param.name : undefined;
-    if (id === undefined) {
-      throw new Error(`Can't get injection token from ${param}`);
-    }
-    const isExcluded = excluded.length > 0 && excluded.some((ex) => ex.name === id);
-    if (id === `${ModuleRef.name}`) {
-      return this.moduleRef;
-    }
-    if (isExcluded) {
-      /// Returns current instance of service, if it is excluded
-      return this.moduleRef.get(id, { strict: false });
-    }
-    let argument: Repository<any>;
+
+    const id = this.extractDependencyId(param);
+
+    // Проверка кэша
     if (this.cache.has(id)) {
       return this.cache.get(id);
     }
-    const canBeRepository = id.includes('Repository');
-    if (typeof param === 'string' || canBeRepository) {
-      // Fetch the dependency
-      let dependency: Repository<any> | null = null;
-      try {
-        if (canBeRepository) {
-          // Return directly if param is custom repository
-          return manager.getCustomRepository(param as any);
-        }
-      } catch (error) {
-        dependency = this.moduleRef.get(param, { strict: false });
-      }
-      if (dependency! instanceof Repository || canBeRepository) {
-        // If the dependency is a repository, make a new repository with the desired transaction manager.
-        const entity: any = dependency!.metadata.target;
-        argument = manager.getRepository(entity);
-      } else {
-        if (!dependency) {
-          dependency = this.moduleRef.get(param, { strict: false });
-        }
-        // The dependency is not a repository, use it directly.
-        argument = dependency!;
-      }
-    } else {
-      argument = this.findArgumentsForProvider(param as ClassType, manager, excluded);
+
+    // Проверка исключений
+    if (this.isDependencyExcluded(id, excluded)) {
+      return this.moduleRef.get(id, { strict: false });
     }
-    this.cache.set(id, argument);
-    return argument;
+
+    // Специальная обработка ModuleRef
+    if (id === ModuleRef.name) {
+      return this.moduleRef;
+    }
+
+    const resolvedDependency = this.resolveDependency(param, id, manager, excluded);
+    this.cache.set(id, resolvedDependency);
+    return resolvedDependency;
+  }
+
+  private isForwardRef(param: DependencyParam): param is ForwardRef {
+    return typeof param === 'object' && 'forwardRef' in param;
+  }
+
+  private resolveForwardRef(param: ForwardRef): any {
+    try {
+      return this.moduleRef.get(param.forwardRef(), { strict: false });
+    } catch (error) {
+      throw new TransactionDependencyError(
+        `Failed to resolve forwardRef: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        param
+      );
+    }
+  }
+
+  private extractDependencyId(param: DependencyParam): string {
+    if (typeof param === 'string') {
+      return param;
+    }
+    if (typeof param === 'function') {
+      return param.name;
+    }
+    throw new TransactionDependencyError('Cannot extract dependency ID from parameter', param);
+  }
+
+  private isDependencyExcluded(id: string, excluded: ClassType[]): boolean {
+    return excluded.length > 0 && excluded.some((ex) => ex.name === id);
+  }
+
+  private resolveDependency(param: DependencyParam, id: string, manager: EntityManager, excluded: ClassType[]): ResolvedDependency {
+    const canBeRepository = id.includes('Repository');
+
+    if (typeof param === 'string' || canBeRepository) {
+      return this.resolveRepositoryOrService(param, id, manager, canBeRepository);
+    } else {
+      return this.findArgumentsForProvider(param as ClassType, manager, excluded);
+    }
+  }
+
+  private resolveRepositoryOrService(param: DependencyParam, id: string, manager: EntityManager, canBeRepository: boolean): ResolvedDependency {
+    let dependency: Repository<any> | null = null;
+
+    try {
+      // Приводим param к правильному типу для moduleRef.get
+      const token = typeof param === 'string' ? param : param as any;
+      dependency = this.moduleRef.get(token, { strict: false });
+    } catch (error) {
+      throw new TransactionDependencyError(
+        `Failed to resolve dependency "${id}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        param
+      );
+    }
+
+    if (!dependency) {
+      throw new TransactionDependencyError(`Dependency "${id}" not found in module`, param);
+    }
+
+    if (dependency instanceof Repository || canBeRepository) {
+      return this.createTransactionalRepository(dependency, manager, id);
+    }
+
+    return dependency;
+  }
+
+  private createTransactionalRepository(dependency: Repository<any>, manager: EntityManager, id: string): Repository<any> {
+    try {
+      if (!dependency.metadata?.target) {
+        throw new TransactionRepositoryError(`Repository metadata not found`, id);
+      }
+
+      const entity = dependency.metadata.target;
+      return manager.getRepository(entity);
+    } catch (error) {
+      throw new TransactionRepositoryError(
+        `Failed to create transactional repository: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        id
+      );
+    }
   }
 
   private findArgumentsForProvider(constructor: ClassType, manager: EntityManager, excluded: ClassType[]): any {
-    const args: any[] = [];
-    const keys = Reflect.getMetadataKeys(constructor);
+    try {
+      const constructorArgs = this.resolveConstructorArguments(constructor, manager, excluded);
+      return new constructor(...constructorArgs);
+    } catch (error) {
+      throw new TransactionDependencyError(
+        `Failed to create instance of ${constructor.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        constructor
+      );
+    }
+  }
 
+  private resolveConstructorArguments(constructor: ClassType, manager: EntityManager, excluded: ClassType[]): any[] {
+    const metadataKeys = Reflect.getMetadataKeys(constructor);
+    const args: any[] = [];
     const missingParams: string[] = [];
 
-    keys.forEach((key) => {
+    for (const key of metadataKeys) {
       if (key === PARAMTYPES_METADATA) {
-        const paramTypes: Array<{ name: string } | ClassType | string> = Reflect.getMetadata(key, constructor);
+        const paramTypes = this.getParameterTypes(constructor);
+        const selfDeclaredTypes = this.getSelfDeclaredTypes(constructor);
 
-        const selfParamTypes: Array<{ param: string } | { param: { name: string } }> = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, constructor);
-
-        for (const param of paramTypes) {
-          // In case we could not get parameter types from 'design:paramtypes'
-          // metadata key
-          if (!param) {
-            const paramTypeNameMap = paramTypes
-              .filter((item) => !!item)
-              .reduce((acc, currVal, currIdx) => {
-                acc.set((currVal as { name: string }).name, currIdx);
-
-                return acc;
-              }, new Map());
-
-            const selfParamTypeMap = selfParamTypes
-              .filter((item) => !!item)
-              .reduce((acc, currVal, currIdx) => {
-                if (typeof currVal.param === 'string') {
-                  acc.set(currVal.param, currIdx);
-                } else {
-                  acc.set(currVal.param.name, currIdx);
-                }
-
-                return acc;
-              }, new Map());
-
-            const exclusion = _xor(Array.from(paramTypeNameMap.keys()), Array.from(selfParamTypeMap.keys()));
-
-            exclusion.forEach((item) => {
-              if (paramTypeNameMap.has(item)) {
-                const val = paramTypes[paramTypeNameMap.get(item)] as { name: string };
-
-                missingParams.push(val.name);
-              }
-
-              if (selfParamTypeMap.has(item)) {
-                const val = selfParamTypes[selfParamTypeMap.get(item)];
-
-                missingParams.push(typeof val?.param === 'object' ? val?.param?.name : val.param);
-              }
-            });
-
-            return;
-          }
-
-          const argument = this.getArgument(param as string, manager, excluded);
-
-          args.push(argument);
-        }
+        this.processParameterTypes(paramTypes, selfDeclaredTypes, args, missingParams, manager, excluded);
       }
-    });
+    }
 
-    missingParams.forEach((item) => {
-      const argument = this.getArgument(item, manager, excluded);
-
+    // Resolve missing parameters
+    for (const paramName of missingParams) {
+      const argument = this.getArgument(paramName, manager, excluded);
       args.push(argument);
-    });
+    }
 
-    return new constructor(...args);
+    return args;
+  }
+
+  private getParameterTypes(constructor: ClassType): MetadataParam[] {
+    // Проверяем кэш метаданных
+    const cached = TransactionFor.metadataCache.get(constructor);
+    if (cached) {
+      return cached.paramTypes;
+    }
+
+    const paramTypes = Reflect.getMetadata(PARAMTYPES_METADATA, constructor);
+    if (!Array.isArray(paramTypes)) {
+      throw new TransactionDependencyError('Invalid parameter types metadata', constructor);
+    }
+
+    // Кэшируем результат
+    const selfDeclaredTypes = this.getSelfDeclaredTypesInternal(constructor);
+    TransactionFor.metadataCache.set(constructor, { paramTypes, selfDeclaredTypes });
+
+    return paramTypes;
+  }
+
+  private getSelfDeclaredTypes(constructor: ClassType): SelfDeclaredParam[] {
+    // Проверяем кэш метаданных
+    const cached = TransactionFor.metadataCache.get(constructor);
+    if (cached) {
+      return cached.selfDeclaredTypes;
+    }
+
+    return this.getSelfDeclaredTypesInternal(constructor);
+  }
+
+  private getSelfDeclaredTypesInternal(constructor: ClassType): SelfDeclaredParam[] {
+    const selfDeclaredTypes = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, constructor);
+    return Array.isArray(selfDeclaredTypes) ? selfDeclaredTypes : [];
+  }
+
+  private processParameterTypes(
+    paramTypes: MetadataParam[],
+    selfDeclaredTypes: SelfDeclaredParam[],
+    args: any[],
+    missingParams: string[],
+    manager: EntityManager,
+    excluded: ClassType[]
+  ): void {
+    for (const param of paramTypes) {
+      if (!param) {
+        // Handle missing parameter types by comparing with self-declared types
+        this.handleMissingParameterTypes(paramTypes, selfDeclaredTypes, missingParams);
+        return;
+      }
+
+      const argument = this.getArgument(param as DependencyParam, manager, excluded);
+      args.push(argument);
+    }
+  }
+
+  private handleMissingParameterTypes(
+    paramTypes: MetadataParam[],
+    selfDeclaredTypes: SelfDeclaredParam[],
+    missingParams: string[]
+  ): void {
+    const paramTypeNames = this.extractParameterNames(paramTypes);
+    const selfDeclaredNames = this.extractSelfDeclaredNames(selfDeclaredTypes);
+
+    const missingTypeNames = _xor(paramTypeNames, selfDeclaredNames);
+
+    for (const typeName of missingTypeNames) {
+      if (typeof typeName === 'string') {
+        missingParams.push(typeName);
+      }
+    }
+  }
+
+  private extractParameterNames(paramTypes: MetadataParam[]): string[] {
+    return paramTypes
+      .filter(Boolean)
+      .map(param => {
+        if (typeof param === 'string') return param;
+        if (typeof param === 'function') return param.name;
+        if (typeof param === 'object' && 'name' in param) return param.name;
+        return '';
+      })
+      .filter(Boolean);
+  }
+
+  private extractSelfDeclaredNames(selfDeclaredTypes: SelfDeclaredParam[]): string[] {
+    return selfDeclaredTypes
+      .filter(Boolean)
+      .map(item => {
+        if (typeof item.param === 'string') return item.param;
+        if (typeof item.param === 'object' && 'name' in item.param) return item.param.name;
+        return '';
+      })
+      .filter(Boolean);
+  }
+
+  /**
+   * Очищает кэш метаданных. Полезно для тестирования или при изменении структуры классов.
+   */
+  public static clearMetadataCache(): void {
+    TransactionFor.metadataCache.clear();
+  }
+
+  /**
+   * Возвращает статистику использования кэша
+   */
+  public static getCacheStats(): { size: number; keys: string[] } {
+    return {
+      size: TransactionFor.metadataCache.size,
+      keys: Array.from(TransactionFor.metadataCache.keys()).map(cls => cls.name)
+    };
+  }
+
+  /**
+   * Проверяет, поддерживает ли класс транзакции (наследуется от TransactionFor)
+   */
+  public static isTransactional(instance: any): instance is TransactionFor {
+    return instance instanceof TransactionFor;
   }
 }
